@@ -1,0 +1,13 @@
+session.json
+*.cookies.json
+cookies/
+screenshots/
+__pycache__/
+*.zip
+# personal data: never commit while the repo is public
+config.yaml
+resume.pdf
+resume.docx
+applications.db
+applications.csv
+matches.csv

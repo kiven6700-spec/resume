@@ -1,0 +1,87 @@
+name: Auto-apply jobs (MY + SG)
+
+on:
+  schedule:
+    - cron: "17 1 * * 1-5"    # 09:17 Malaysia/Singapore time, Mon-Fri
+    - cron: "43 6 * * 1-5"    # 14:43 MYT/SGT, Mon-Fri
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run = fill forms but never submit; apply = really submit"
+        type: choice
+        options: [dry-run, apply, search]
+        default: dry-run
+      limit:
+        description: "max applications this run"
+        default: "10"
+
+permissions:
+  contents: write              # to save applications.db back to the repo
+
+concurrency:
+  group: autoapply
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      AUTOAPPLY_CLOUD: "1"
+      AUTOAPPLY_SESSION_B64: ${{ secrets.AUTOAPPLY_SESSION_B64 }}
+      # Scheduled runs: set the repository variable AUTOAPPLY_SCHEDULED_MODE to "apply" when you trust the dry-runs.
+      MODE: ${{ github.event.inputs.mode || vars.AUTOAPPLY_SCHEDULED_MODE || 'dry-run' }}
+      LIMIT: ${{ github.event.inputs.limit || '10' }}
+    steps:
+      - name: Refuse to run in a public repo (your resume, answers and history would be public)
+        if: ${{ !github.event.repository.private }}
+        run: |
+          echo "::error::This repository is public. Make it private: Settings > General > Danger Zone > Change visibility."
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Config from secret (optional)
+        env:
+          CONFIG_YAML: ${{ secrets.AUTOAPPLY_CONFIG_YAML }}
+        run: |
+          if [ -n "$CONFIG_YAML" ]; then printf '%s' "$CONFIG_YAML" > config.yaml; fi
+          test -f config.yaml || { echo "::error::No config.yaml (commit it to this PRIVATE repo or set secret AUTOAPPLY_CONFIG_YAML)"; exit 1; }
+      - name: Run (${{ env.MODE }})
+        run: |
+          case "$MODE" in
+            search)  python main.py search ;;
+            apply)   python main.py apply --auto --limit "$LIMIT" ;;
+            *)       python main.py apply --dry-run --limit "$LIMIT" ;;
+          esac
+      - name: Report
+        if: always()
+        run: |
+          python main.py report || true
+          { echo "## Application log"; echo '```'; python main.py report 2>/dev/null | head -20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Save history to repo
+        if: always()
+        run: |
+          git config user.name "autoapply-bot"
+          git config user.email "autoapply-bot@users.noreply.github.com"
+          git add -f applications.db applications.csv 2>/dev/null || true
+          git add -f matches.csv 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "autoapply: run ${{ github.run_number }} ($MODE)"
+          git push || echo "push failed (non-fatal)"
+      - name: Upload screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autoapply-run-${{ github.run_number }}
+          path: |
+            screenshots/
+            matches.csv
+            applications.csv
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,82 @@
+# Copy to config.yaml and edit.
+resume_path: resume.pdf          # PDF, DOCX or TXT
+
+profile:                          # used to answer application form fields
+  first_name: Ali
+  last_name: Tan
+  email: you@example.com
+  phone: "+60 12-345 6789"
+  city: Kuala Lumpur
+  nationality: Malaysian
+  linkedin: https://www.linkedin.com/in/your-profile
+  website: https://github.com/your-name
+  years_experience: 4
+  notice_period: 1 month
+  expected_salary: 7000           # monthly, in the local currency of the job
+  current_salary: 6000
+
+search:
+  keywords: ["python developer", "data engineer", "backend engineer"]
+  countries: [MY, SG]
+  locations: {MY: "Kuala Lumpur", SG: "Singapore"}
+  pages_per_keyword: 2
+
+filters:
+  min_score: 45                   # 0-100; raise it to be pickier
+  title_must_include_any: []      # e.g. ["engineer", "developer"]
+  title_exclude: [intern, internship, principal, director, "head of"]
+  company_exclude: []
+  max_years_required: 7           # skip jobs asking for more years than this
+
+extra_skills: []
+exclude_skills: []                # detected in resume text but not real skills, e.g. ones you're 'keen to learn'                  # skills the built-in list misses, e.g. ["odoo", "temenos"]
+
+# Answers to screening questions. First matching rule wins; `match` is a list of phrases
+# looked for (case-insensitive) in the question text. Questions with no matching answer
+# make the bot SKIP that job (status needs_manual) instead of guessing.
+answers:
+  - match: ["legally", "right to work", "authorised to work", "authorized to work", "eligible to work"]
+    value: "Yes"
+  - match: ["require sponsorship", "need sponsorship", "employment pass", "work pass", "visa"]
+    value: "No"
+  - match: ["singapore citizen", "permanent resident", "pr status"]
+    value: "No"
+  - match: ["malaysian citizen", "are you malaysian"]
+    value: "Yes"
+  - match: ["willing to relocate", "relocate"]
+    value: "Yes"
+  - match: ["own transport", "driving licen"]
+    value: "Yes"
+  - match: ["degree", "bachelor"]
+    value: "Yes"
+  - match: ["start date", "earliest", "available to start", "when can you start"]
+    value: "1 month"
+
+cover_letter_template: |
+  Dear Hiring Manager,
+
+  I am excited to apply for the {title} role at {company}. My experience with {skills}
+  matches what you are looking for, and I would welcome the chance to contribute to your team.
+
+  Thank you for your time and consideration.
+
+  Best regards,
+  {first_name} {last_name}
+
+sources:
+  mycareersfuture: true           # Singapore only, needs Singpass login
+  jobstreet: true                 # MY + SG, only "Quick apply" jobs are auto-applied
+  linkedin: false                 # risky: LinkedIn bans automation. Enable at your own risk.
+
+limits:
+  max_applications_per_run: 15
+  max_applications_per_day: 30
+  delay_seconds: [8, 20]          # random wait between applications
+
+browser:
+  mode: local                     # "cloud" = headless + cookie session (GitHub Actions sets this automatically)
+  headless: false                 # local mode only: keep false so you can watch (and pass CAPTCHAs)
+  profile_dir: ~/.autoapply/browser-profile
+  session_file: session.json      # cloud mode: cookies imported with `import-cookies` (never commit this)
+
+db_path: applications.db
